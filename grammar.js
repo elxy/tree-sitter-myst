@@ -295,19 +295,23 @@ module.exports = grammar({
                 alias($._fenced_code_block_start_backtick, $.fenced_code_block_delimiter),
                 $.directive_info,
                 $._newline,
-                optional($.minus_metadata),
+                optional(choice($.minus_metadata, repeat1($.directive_option))),
                 optional($.directive_content),
                 optional(seq(alias($._fenced_code_block_end_backtick, $.fenced_code_block_delimiter), $._close_block, $._newline)),
                 $._block_close,
             ),
         ),
         directive_info: $ => choice(
-            seq('{code-block}', optional($._whitespace), optional($.language)),
-            seq('{code-cell}', optional($._whitespace), optional($.language)),
+            seq('{', alias('image', $.directive_name), '}', $._whitespace, alias($._line, $.directive_argument)),
+            seq('{', alias('figure', $.directive_name), '}', $._whitespace, alias($._line, $.directive_argument)),
+            seq('{', alias('code-block', $.directive_name), '}', optional($._whitespace), optional($.language)),
+            seq('{', alias('code-cell', $.directive_name), '}', optional($._whitespace), optional($.language)),
         ),
         directive_content: $ => repeat1(choice($._newline, $._line)),
         directive_name: $ => repeat1(choice($._word, '-')),
-        directive_arguments: $ => seq($.language, repeat(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
+        directive_option: $ => prec(1, seq(':', $.directive_option_name, ':', $._whitespace, $.directive_option_value, $._newline)),
+        directive_option_name: $ => repeat1(choice($._word, '-')),
+        directive_option_value: $ => prec.right(repeat1(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
 
         // An HTML block. We do not emit addition nodes relating to the kind or structure or of the
         // html block as this is best done using language injections and a proper html parsers.
@@ -399,7 +403,7 @@ module.exports = grammar({
         // https://github.github.com/gfm/#blank-lines
         _blank_line: $ => seq($._blank_line_start, choice($._newline, $._eof)),
 
-        
+
         // CONTAINER BLOCKS
 
         // A block quote. This is the most basic example of a container block handled by the
@@ -518,7 +522,7 @@ module.exports = grammar({
             task_list_marker_checked: $ => prec(1, '[x]'),
             task_list_marker_unchecked: $ => prec(1, /\[[ \t]\]/),
         } : {}),
-        
+
         ...(EXTENSION_PIPE_TABLE ? {
             pipe_table: $ => prec.right(seq(
                 $._pipe_table_start,
@@ -528,12 +532,12 @@ module.exports = grammar({
                 repeat(seq($._pipe_table_newline, optional($.pipe_table_row))),
                 choice($._newline, $._eof),
             )),
-            
+
             _pipe_table_newline: $ => seq(
                 $._pipe_table_line_ending,
                 optional($.block_continuation)
             ),
-            
+
             pipe_table_delimiter_row: $ => seq(
                 optional(seq(
                     optional($._whitespace),
@@ -551,13 +555,13 @@ module.exports = grammar({
                     optional($._whitespace)
                 )),
             ),
-            
+
             pipe_table_delimiter_cell: $ => seq(
                 optional(alias(':', $.pipe_table_align_left)),
                 repeat1('-'),
                 optional(alias(':', $.pipe_table_align_right)),
             ),
-            
+
             pipe_table_row: $ => seq(
                 optional(seq(
                     optional($._whitespace),
@@ -686,7 +690,7 @@ module.exports = grammar({
 
         $.minus_metadata,
         $.plus_metadata,
-        
+
         $._pipe_table_start,
         $._pipe_table_line_ending,
     ],
