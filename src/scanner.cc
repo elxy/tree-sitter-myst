@@ -60,6 +60,8 @@ enum TokenType {
     PLUS_METADATA,
     PIPE_TABLE_START,
     PIPE_TABLE_LINE_ENDING,
+    DOLLARMATH_BLOCK_START_DOLLAR,
+    DOLLARMATH_BLOCK_END_DOLLAR,
 };
 
 // Description of a block on the block stack.
@@ -89,6 +91,7 @@ enum Block : uint8_t {
     LIST_ITEM_14_INDENTATION,
     LIST_ITEM_MAX_INDENTATION,
     FENCED_CODE_BLOCK,
+    DOLLARMATH_BLOCK,
     ANONYMOUS,
 };
 
@@ -170,6 +173,8 @@ const bool paragraph_interrupt_symbols[] = {
     false, // TRIGGER_ERROR,
     true, // PIPE_TABLE_START,
     false, // PIPE_TABLE_LINE_ENDING,
+    true, // DOLLARMATH_BLOCK_START_DOLLAR,
+    false, // DOLLARMATH_BLOCK_END_DOLLAR,
 };
 
 // State bitflags used with `Scanner.state`
@@ -197,6 +202,8 @@ struct Scanner {
     uint8_t column;
     // The delimiter length of the currently open fenced code block
     uint8_t fenced_code_block_delimiter_length;
+    // The delimiter length of the currently open dollarmath block
+    uint8_t dollarmath_block_delimiter_length;
 
     bool simulate;
 
@@ -214,6 +221,7 @@ struct Scanner {
         buffer[i++] = indentation;
         buffer[i++] = column;
         buffer[i++] = fenced_code_block_delimiter_length;
+        buffer[i++] = dollarmath_block_delimiter_length;
         size_t blocks_count = open_blocks.size();
         if (blocks_count > UINT8_MAX - i) blocks_count = UINT8_MAX - i;
         if (blocks_count > 0) {
@@ -232,6 +240,7 @@ struct Scanner {
         indentation = 0;
         column = 0;
         fenced_code_block_delimiter_length = 0;
+        dollarmath_block_delimiter_length = 0;
         if (length > 0) {
             size_t i = 0;
             state = buffer[i++];
@@ -239,6 +248,7 @@ struct Scanner {
             indentation = buffer[i++];
             column = buffer[i++];
             fenced_code_block_delimiter_length = buffer[i++];
+            dollarmath_block_delimiter_length = buffer[i++];
             size_t blocks_count = length - i;
             open_blocks.resize(blocks_count);
             if (blocks_count > 0) {
@@ -350,6 +360,9 @@ struct Scanner {
                     // A tilde could mark the beginning or ending of a fenced code block.
                     return parse_fenced_code_block('~', lexer, valid_symbols);
                     break;
+                case '$':
+                    return parse_dollarmath_block('$', lexer, valid_symbols);
+                    break;
                 case '*':
                     // A star could either mark  a list item or a thematic break.
                     // This code is similar to the code for '_' and '+'.
@@ -427,7 +440,7 @@ struct Scanner {
             if (!(state & STATE_WAS_SOFT_LINE_BREAK)) {
                 Block block = open_blocks[open_blocks.size() - 1];
                 lexer->result_symbol = BLOCK_CLOSE;
-                if (block == FENCED_CODE_BLOCK) {
+                if (block == FENCED_CODE_BLOCK || block == DOLLARMATH_BLOCK) {
                     mark_end(lexer);
                     indentation = 0;
                 }
@@ -593,6 +606,7 @@ struct Scanner {
                 }
                 break;
             case FENCED_CODE_BLOCK:
+            case DOLLARMATH_BLOCK:
             case ANONYMOUS:
                 return true;
         }
@@ -648,6 +662,54 @@ struct Scanner {
                 // Remember the length of the delimiter for later, since we need it to decide
                 // whether a sequence of backticks can close the block.
                 fenced_code_block_delimiter_length = level;
+                indentation = 0;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool parse_dollarmath_block(const char delimiter, TSLexer *lexer, const bool *valid_symbols) {
+        // count the number of backticks
+        size_t level = 0;
+        while (lexer->lookahead == delimiter) {
+            advance(lexer);
+            level++;
+        }
+        mark_end(lexer);
+        // If this is able to close a fenced code block then that is the only valid interpretation.
+        // It can only close a fenced code block if the number of backticks is at least the number
+        // of backticks of the opening delimiter. Also it cannot be indented more than 3 spaces.
+        if (
+            (valid_symbols[DOLLARMATH_BLOCK_END_DOLLAR]) &&
+            indentation < 4 &&
+            level >= dollarmath_block_delimiter_length &&
+            (lexer->lookahead == '\n' || lexer->lookahead == '\r')
+            ) {
+            dollarmath_block_delimiter_length = 0;
+            lexer->result_symbol = DOLLARMATH_BLOCK_END_DOLLAR;
+            return true;
+        }
+        // If this could be the start of a fenced code block, check if the info string contains any
+        // backticks.
+        if ((valid_symbols[DOLLARMATH_BLOCK_START_DOLLAR]) && level >= 2) {
+            bool info_string_has_dollar = false;
+            if (delimiter == '$') {
+                while (lexer->lookahead != '\n' && lexer->lookahead != '\r' && !lexer->eof(lexer)) {
+                    if (lexer->lookahead == '$') {
+                        info_string_has_dollar = true;
+                        break;
+                    }
+                    advance(lexer);
+                }
+            }
+            // If it does not then choose to interpret this as the start of a fenced code block.
+            if (!info_string_has_dollar) {
+                lexer->result_symbol = DOLLARMATH_BLOCK_START_DOLLAR;
+                if (!simulate) open_blocks.push_back(DOLLARMATH_BLOCK);
+                // Remember the length of the delimiter for later, since we need it to decide
+                // whether a sequence of backticks can close the block.
+                dollarmath_block_delimiter_length = level;
                 indentation = 0;
                 return true;
             }

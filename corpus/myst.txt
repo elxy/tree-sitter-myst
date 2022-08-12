@@ -49,3 +49,27 @@ a = 2
       (directive_content
         (block_continuation))
       (fenced_code_block_delimiter))))
+
+================================================================================
+#2 - Dollar delimited math block
+================================================================================
+$$
+   \begin{eqnarray}
+      y    & = & ax^2 + bx + c \\
+      f(x) & = & x^2 + 2xy + y^2
+   \end{eqnarray}
+$$
+
+--------------------------------------------------------------------------------
+
+(document
+  (section
+    (dollarmath_block
+      (dollarmath_block_delimiter)
+      (block_continuation)
+      (math_block
+        (block_continuation)
+        (block_continuation)
+        (block_continuation)
+        (block_continuation))
+      (dollarmath_block_delimiter))))

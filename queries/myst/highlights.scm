@@ -21,6 +21,7 @@
 
 [
   (fenced_code_block_delimiter)
+  (dollarmath_block_delimiter)
 ] @punctuation.delimiter
 
 (code_fence_content) @none
@@ -62,5 +63,6 @@
 ([
   (info_string)
   (fenced_code_block_delimiter)
+  (dollarmath_block_delimiter)
 ] @conceal
 (#set! conceal ""))

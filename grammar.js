@@ -132,6 +132,7 @@ module.exports = grammar({
             $.list,
             $.fenced_code_block,
             $.directive_block,
+            $.dollarmath_block,
             $._blank_line,
             $.html_block,
             $.link_reference_definition,
@@ -312,6 +313,20 @@ module.exports = grammar({
         directive_option: $ => prec(1, seq(':', $.directive_option_name, ':', $._whitespace, $.directive_option_value, $._newline)),
         directive_option_name: $ => repeat1(choice($._word, '-')),
         directive_option_value: $ => prec.right(repeat1(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
+
+        // Math block.
+        //
+        // https://myst-parser.readthedocs.io/en/latest/syntax/optional.html#dollar-delimited-math
+        dollarmath_block: $ => prec.right(
+            seq(
+                alias($._dollarmath_block_start_dollar, $.dollarmath_block_delimiter),
+                $._newline,
+                optional($.math_block),
+                optional(seq(alias($._dollarmath_block_end_dollar, $.dollarmath_block_delimiter), $._close_block, $._newline)),
+                $._block_close,
+            ),
+        ),
+        math_block: $ => repeat1(choice($._newline, $._line)),
 
         // An HTML block. We do not emit addition nodes relating to the kind or structure or of the
         // html block as this is best done using language injections and a proper html parsers.
@@ -693,6 +708,9 @@ module.exports = grammar({
 
         $._pipe_table_start,
         $._pipe_table_line_ending,
+
+        $._dollarmath_block_start_dollar,
+        $._dollarmath_block_end_dollar,
     ],
     precedences: $ => [
         [$._setext_heading1, $._block],

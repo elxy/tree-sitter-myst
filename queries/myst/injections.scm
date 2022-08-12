@@ -11,6 +11,8 @@
 
 ((html_block) @html)
 
+(math_block) @latex
+
 ((minus_metadata) @yaml (#offset! @yaml 1 0 -1 0))
 ((plus_metadata) @toml (#offset! @toml 1 0 -1 0))
 
