@@ -131,6 +131,7 @@ module.exports = grammar({
             $.thematic_break,
             $.list,
             $.fenced_code_block,
+            $.directive_block,
             $._blank_line,
             $.html_block,
             $.link_reference_definition,
@@ -282,9 +283,31 @@ module.exports = grammar({
                     seq($.language, repeat(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
                     seq($._whitespace, repeat(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
                 ))
-            )
+            ),
         ),
         language: $ => prec.right(repeat1(choice($._word, punctuation_without($, ['{', '}']), $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
+
+        // Directive block is similar to fenced code block.
+        //
+        // https://myst-parser.readthedocs.io/en/latest/syntax/roles-and-directives.html#directives-a-block-level-extension-point
+        directive_block: $ => prec.right(
+            seq(
+                alias($._fenced_code_block_start_backtick, $.fenced_code_block_delimiter),
+                $.directive_info,
+                $._newline,
+                optional($.minus_metadata),
+                optional($.directive_content),
+                optional(seq(alias($._fenced_code_block_end_backtick, $.fenced_code_block_delimiter), $._close_block, $._newline)),
+                $._block_close,
+            ),
+        ),
+        directive_info: $ => choice(
+            seq('{code-block}', optional($._whitespace), optional($.language)),
+            seq('{code-cell}', optional($._whitespace), optional($.language)),
+        ),
+        directive_content: $ => repeat1(choice($._newline, $._line)),
+        directive_name: $ => repeat1(choice($._word, '-')),
+        directive_arguments: $ => seq($.language, repeat(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
 
         // An HTML block. We do not emit addition nodes relating to the kind or structure or of the
         // html block as this is best done using language injections and a proper html parsers.
