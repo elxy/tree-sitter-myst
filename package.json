@@ -14,14 +14,17 @@
   "author": "elxy (https://github.com/elxy)",
   "license": "MIT",
   "dependencies": {
-    "nan": "^2.16.0"
+    "nan": "^2.16.0",
+    "node-gyp": "^9.1.0",
+    "nopt": "^6.0.0"
   },
   "devDependencies": {
     "tree-sitter-cli": "^0.20.6"
   },
   "scripts": {
-    "test": "tree-sitter test",
-    "build": "tree-sitter generate --no-bindings && node-gyp build"
+    "init": "yarn exec node-gyp configure",
+    "test": "yarn exec tree-sitter test",
+    "build": "yarn exec tree-sitter generate --no-bindings && node-gyp build"
   },
   "tree-sitter": [
     {
