@@ -291,7 +291,7 @@ module.exports = grammar({
         // Directive block is similar to fenced code block.
         //
         // https://myst-parser.readthedocs.io/en/latest/syntax/roles-and-directives.html#directives-a-block-level-extension-point
-        directive_block: $ => prec.right(
+        directive_block: $ => prec(10, 
             seq(
                 alias($._fenced_code_block_start_backtick, $.fenced_code_block_delimiter),
                 $.directive_info,
@@ -303,16 +303,16 @@ module.exports = grammar({
             ),
         ),
         directive_info: $ => choice(
-            seq('{', alias('image', $.directive_name), '}', $._whitespace, alias($._line, $.directive_argument)),
-            seq('{', alias('figure', $.directive_name), '}', $._whitespace, alias($._line, $.directive_argument)),
+            seq('{', $.directive_name, '}', optional($._whitespace), optional($.directive_argument)),
             seq('{', alias('code-block', $.directive_name), '}', optional($._whitespace), optional($.language)),
             seq('{', alias('code-cell', $.directive_name), '}', optional($._whitespace), optional($.language)),
         ),
-        directive_content: $ => repeat1(choice($._newline, $._line)),
-        directive_name: $ => repeat1(choice($._word, '-')),
+        directive_name: $ => repeat1($._word_valid),
+        directive_argument: $ => prec.right(seq($._word_valid, repeat1(choice($._word_valid, $._whitespace, punctuation_without($, []))))),
         directive_option: $ => prec(1, seq(':', $.directive_option_name, ':', $._whitespace, $.directive_option_value, $._newline)),
-        directive_option_name: $ => repeat1(choice($._word, '-')),
+        directive_option_name: $ => repeat1(choice($._word_valid, '-')),
         directive_option_value: $ => prec.right(repeat1(choice($._line, $.backslash_escape, $.entity_reference, $.numeric_character_reference))),
+        directive_content: $ => repeat1(choice($._newline, $._line)),
 
         // Math block.
         //
@@ -530,6 +530,7 @@ module.exports = grammar({
                 /\[[ \t]\]/,
             ) : choice()
         ),
+        _word_valid: $ => /[a-zA-Z0-9_]+/,
         // The external scanner emits some characters that should just be ignored.
         _whitespace: $ => /[ \t]+/,
 
